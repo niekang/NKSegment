@@ -14,13 +14,13 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  进度条的位置 居左 居中 居右
 
- - NKSegmentProgressTypeLeft: <#NKSegmentProgressTypeLeft description#>
  - NKSegmentProgressTypeCenter: <#NKSegmentProgressTypeCenter description#>
+ - NKSegmentProgressTypeLeft: <#NKSegmentProgressTypeLeft description#>
  - NKSegmentProgressTypeRight: <#NKSegmentProgressTypeRight description#>
  */
 typedef NS_ENUM(NSInteger, NKSegmentProgressType){
-    NKSegmentProgressTypeLeft,
     NKSegmentProgressTypeCenter,
+    NKSegmentProgressTypeLeft,
     NKSegmentProgressTypeRight,
 };
 

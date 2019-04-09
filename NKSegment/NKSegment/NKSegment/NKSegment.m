@@ -10,7 +10,7 @@
 
 
 @interface NKSegment()<UIScrollViewDelegate>{
-    BOOL _updateProgressDisable;
+    BOOL _isDrag;
 }
 
 @property (nonatomic, strong) UIScrollView *scrollView;
@@ -44,6 +44,7 @@
     self.isSetSelectedIndex = NO;
     self.btns = [NSMutableArray array];
     self.itemsWidthArray = [NSMutableArray array];
+    self.contentInset = UIEdgeInsetsZero;
     self.itemMargin = 10;
     self.progressViewSize = CGSizeMake(20, 3);
     self.normalTextFont = [UIFont systemFontOfSize:16];
@@ -51,12 +52,10 @@
     self.normalTextColor = [UIColor lightGrayColor];
     self.selectedTextColor = [UIColor blackColor];
     self.progressTintColor = self.selectedTextColor;
-    self.contentInset = UIEdgeInsetsZero;
+    self.showProgressView = YES;
+
     [self addSubview:self.scrollView];
     [self.scrollView addSubview:self.progressView];
-    
-    self.backgroundColor = [UIColor yellowColor];
-    self.scrollView.backgroundColor = [UIColor greenColor];
 }
 
 #pragma mark - Public
@@ -128,15 +127,11 @@
     
     self.scrollView.contentSize = CGSizeMake(x, self.scrollView.frame.size.height);
     
+    CGRect frame = self.progressView.frame;
+    frame.origin.x = [self progressViewXAtIndex:_selectedIndex];
+    self.progressView.frame = frame;
     self.progressView.hidden = !self.showProgressView;
-    //不允许滚动j，即内容较少的时候默认居中显示
-#warning 修改
-//    if (!self.scrollEnable) {
-//        CGFloat offSet = self.scrollView.contentSize.width - self.frame.size.width;
-//        self.width = self.scrollView.contentSize.width;
-//        self.x -= offSet/2.f;
-//    }
-    
+
 }
 
 - (CGSize)contentSize {
@@ -145,8 +140,6 @@
 
 - (void)setSelecetdIndex:(NSInteger)selectedIndex animated:(BOOL)animated {
     
-    _updateProgressDisable = NO;
-
     if (self.titles.count == 0) {
         return;
     }
@@ -182,7 +175,6 @@
     }
     
     if (self.contentScrollView.contentOffset.x != selectedIndex * self.contentScrollView.frame.size.width) {
-        _updateProgressDisable = YES;
         [self.contentScrollView setContentOffset:CGPointMake(selectedIndex * self.contentScrollView.frame.size.width, 0) animated:YES];
     }
 }
@@ -190,6 +182,9 @@
 
 #pragma mark - Private
 - (CGFloat)progressViewXAtIndex:(NSInteger)index {
+    if (self.itemsWidthArray.count == 0) {
+        return 0;
+    }
     CGFloat x = 0;
     if (self.progressType == NKSegmentProgressTypeLeft) {
         for (NSInteger i=0; i<index; i++) {
@@ -255,10 +250,11 @@
 #pragma mark - UIScrollViewDelegate
 - (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView {
     NSLog(@"%s",__FUNCTION__);
+    _isDrag = YES;
 }
 
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView {
-    if (!_updateProgressDisable) {
+    if (_isDrag) {
         [self updatePogress:scrollView];
     }
 
@@ -268,16 +264,16 @@
 }
 
 - (void)scrollViewDidEndScrollingAnimation:(UIScrollView *)scrollView {
-    _updateProgressDisable = NO;
+    _isDrag = NO;
 }
 
 - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
-    _updateProgressDisable = NO;
     NSInteger currentPage = scrollView.contentOffset.x/scrollView.frame.size.width;
     self.selectedIndex = currentPage;
     if (self.delegate && [self.delegate respondsToSelector:@selector(segment:contentScrollViewDidEndDecelerating:)]) {
         [self.delegate segment:self contentScrollViewDidEndDecelerating:scrollView];
     }
+    _isDrag = NO;
 }
 
 #pragma mark - Setter
@@ -298,7 +294,6 @@
         [btn setTitle:titles[i] forState:UIControlStateNormal];
         [btn addTarget:self action:@selector(btnClick:) forControlEvents:UIControlEventTouchUpInside];
         btn.tag = i;
-        btn.backgroundColor = [UIColor cyanColor];
         [self.scrollView addSubview:btn];
         [self.btns addObject:btn];
     }
@@ -306,7 +301,7 @@
     
     self.selectedIndex = 0;
     
-    [self bringSubviewToFront:self.progressView];
+    [self.scrollView bringSubviewToFront:self.progressView];
 
     [self reloadData];
 }
@@ -331,7 +326,7 @@
 
 - (void)setProgressViewSize:(CGSize)progressViewSize {
     _progressViewSize = progressViewSize;
-    self.progressView.frame = CGRectMake(self.progressView.frame.origin.x, self.frame.size.height - progressViewSize.height, progressViewSize.width, progressViewSize.height);
+    self.progressView.frame = CGRectMake(self.progressView.frame.origin.x, self.scrollView.frame.size.height - progressViewSize.height, progressViewSize.width, progressViewSize.height);
     
 }
 
@@ -363,20 +358,22 @@
 - (void)layoutSubviews {
     [super layoutSubviews];
     self.scrollView.frame = CGRectMake(self.contentInset.left, self.contentInset.top, self.frame.size.width - self.contentInset.left - self.contentInset.right, self.frame.size.height - self.contentInset.top - self.contentInset.bottom);
+    self.progressView.frame = CGRectMake(self.progressView.frame.origin.x, self.scrollView.frame.size.height - self.progressViewSize.height, self.progressViewSize.width, self.progressViewSize.height);
 }
 
 #pragma mark - Getter
 - (UIScrollView *)scrollView {
     if (!_scrollView) {
-        _scrollView = [[UIScrollView alloc] initWithFrame:self.bounds];
+        _scrollView = [[UIScrollView alloc] initWithFrame:CGRectMake(self.contentInset.left, self.contentInset.top, self.frame.size.width - self.contentInset.left - self.contentInset.right, self.frame.size.height - self.contentInset.top - self.contentInset.bottom)];
         _scrollView.showsHorizontalScrollIndicator = NO;
+        _scrollView.showsVerticalScrollIndicator = NO;
     }
     return _scrollView;
 }
 
 - (UIView *)progressView {
     if (!_progressView) {
-        _progressView = [[UIView alloc] initWithFrame:CGRectMake(0, self.frame.size.height - self.progressViewSize.height, self.progressViewSize.width, self.progressViewSize.height)];
+        _progressView = [[UIView alloc] initWithFrame:CGRectMake(0, self.scrollView.frame.size.height - self.progressViewSize.height, self.progressViewSize.width, self.progressViewSize.height)];
         _progressView.backgroundColor = self.progressTintColor;
         _progressView.hidden = YES;
     }
